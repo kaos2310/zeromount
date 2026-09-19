@@ -22,6 +22,7 @@ pub struct SusfsFeatures {
     pub path: bool,
     pub maps: bool,
     pub kstat_redirect: bool,
+    pub open_redirect: bool,
 }
 
 /// Client for SUSFS kernel operations via KSU supercall.
@@ -181,6 +182,50 @@ impl SusfsClient {
 
         self.do_supercall(SusfsCommand::SetSdcardRootPath, &mut info as *mut _ as *mut u8)?;
         check_err(info.err, "set_sdcard_root_path")
+    }
+
+    // ---- Open redirect ----
+
+    /// Register an open()-time redirect in SUSFS.
+    ///
+    /// uid_scheme follows current SUSFS semantics:
+    /// 0=NonApp, 1=RootExceptSu, 2=NonSu, 3=UnmountedApp, 4=Unmounted.
+    pub fn add_open_redirect(
+        &self,
+        target_path: &str,
+        redirected_path: &str,
+        uid_scheme: u32,
+    ) -> Result<()> {
+        self.ensure_available()?;
+        if !self.features.open_redirect {
+            bail!("SUSFS open_redirect is not supported by this kernel");
+        }
+        if uid_scheme > 4 {
+            bail!("invalid open_redirect uid_scheme {uid_scheme}; expected 0..=4");
+        }
+        if target_path.as_bytes().len() >= SUSFS_MAX_LEN_PATHNAME {
+            bail!("open_redirect target path exceeds {} bytes", SUSFS_MAX_LEN_PATHNAME - 1);
+        }
+        if redirected_path.as_bytes().len() >= SUSFS_MAX_LEN_PATHNAME {
+            bail!("open_redirect replacement path exceeds {} bytes", SUSFS_MAX_LEN_PATHNAME - 1);
+        }
+
+        fs::metadata(target_path)
+            .with_context(|| format!("open_redirect target does not exist: '{target_path}'"))?;
+        fs::metadata(redirected_path)
+            .with_context(|| format!("open_redirect replacement does not exist: '{redirected_path}'"))?;
+
+        let mut info = StSusfsOpenRedirect {
+            target_pathname: [0u8; SUSFS_MAX_LEN_PATHNAME],
+            redirected_pathname: [0u8; SUSFS_MAX_LEN_PATHNAME],
+            uid_scheme,
+            err: ERR_CMD_NOT_SUPPORTED,
+        };
+        copy_path_to_buf(&mut info.target_pathname, target_path);
+        copy_path_to_buf(&mut info.redirected_pathname, redirected_path);
+
+        self.do_supercall(SusfsCommand::AddOpenRedirect, &mut info as *mut _ as *mut u8)?;
+        check_err(info.err, "add_open_redirect")
     }
 
     // ---- Kstat spoofing ----
@@ -505,6 +550,7 @@ fn parse_features(features_str: &str) -> SusfsFeatures {
         maps: features_str.contains("CONFIG_KSU_SUSFS_SUS_MAPS")
             || features_str.contains("CONFIG_KSU_SUSFS_SUS_MAP"),
         kstat_redirect: false,
+        open_redirect: features_str.contains("CONFIG_KSU_SUSFS_OPEN_REDIRECT"),
     }
 }
 
