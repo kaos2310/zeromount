@@ -60,6 +60,17 @@ pub enum Commands {
         feature: String,
         state: String,
     },
+    /// Add one native SUSFS open() redirect (non-persistent; explicit opt-in)
+    #[command(name = "open-redirect")]
+    OpenRedirect {
+        /// Path applications request
+        target_path: String,
+        /// Real replacement file to open
+        redirected_path: String,
+        /// SUSFS UID scheme: 0=NonApp, 1=RootExceptSu, 2=NonSu, 3=UnmountedApp, 4=Unmounted
+        #[arg(default_value_t = 2)]
+        uid_scheme: u32,
+    },
     /// Watch /data/adb/modules/ for changes (inotify with polling fallback)
     Watch,
     /// Performance tuning + input boost daemon (controlled by perf.enabled)
