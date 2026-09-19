@@ -30,6 +30,7 @@ pub fn probe_susfs() -> Result<CapabilityFlags> {
             caps.susfs_path = features.path;
             caps.susfs_maps = features.maps;
             caps.susfs_kstat_redirect = features.kstat_redirect;
+            caps.susfs_open_redirect = features.open_redirect;
 
             debug!(
                 "SUSFS capabilities: kstat={}, path={}, maps={}, kstat_redirect={}",

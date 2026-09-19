@@ -127,6 +127,17 @@ pub struct StSusfsSpoofCmdline {
     pub err: i32,
 }
 
+/// add_open_redirect
+/// Current SUSFS ABI: char target[256] + char redirected[256] + u32 uid_scheme + int err.
+#[repr(C)]
+#[derive(Clone)]
+pub struct StSusfsOpenRedirect {
+    pub target_pathname: [u8; SUSFS_MAX_LEN_PATHNAME],
+    pub redirected_pathname: [u8; SUSFS_MAX_LEN_PATHNAME],
+    pub uid_scheme: u32,
+    pub err: i32,
+}
+
 /// add_sus_map
 /// C: struct st_susfs_sus_map (main.c:163-166)
 #[repr(C)]
@@ -262,6 +273,16 @@ mod tests {
         assert_eq!(mem::offset_of!(StSusfsSusKstat, spoofed_blksize), 352);
         assert_eq!(mem::offset_of!(StSusfsSusKstat, spoofed_blocks), 360);
         assert_eq!(mem::offset_of!(StSusfsSusKstat, err), 368);
+    }
+
+    #[test]
+    fn open_redirect_layout() {
+        // C: char[256] + char[256] + u32 + int = 520
+        assert_eq!(mem::size_of::<StSusfsOpenRedirect>(), 520);
+        assert_eq!(mem::offset_of!(StSusfsOpenRedirect, target_pathname), 0);
+        assert_eq!(mem::offset_of!(StSusfsOpenRedirect, redirected_pathname), 256);
+        assert_eq!(mem::offset_of!(StSusfsOpenRedirect, uid_scheme), 512);
+        assert_eq!(mem::offset_of!(StSusfsOpenRedirect, err), 516);
     }
 
     #[test]

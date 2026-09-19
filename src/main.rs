@@ -80,6 +80,9 @@ fn main() -> Result<()> {
         Commands::Log { action } => cli::handlers::handle_log(action),
         Commands::Bridge { action } => cli::handlers::handle_bridge(action),
         Commands::Susfs { feature, state } => cli::handlers::handle_susfs(&feature, &state),
+        Commands::OpenRedirect { target_path, redirected_path, uid_scheme } => {
+            cli::handlers::handle_open_redirect(&target_path, &redirected_path, uid_scheme)
+        }
         Commands::Watch => cli::handlers::handle_watch(),
         Commands::Perf => cli::handlers::handle_perf(),
         Commands::PropWatch => cli::handlers::handle_prop_watch(),

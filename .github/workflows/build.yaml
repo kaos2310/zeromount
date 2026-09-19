@@ -2,6 +2,9 @@ name: Build
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feature/susfs-open-redirect-native
 
 env:
   CARGO_TERM_COLOR: always
@@ -204,7 +207,7 @@ jobs:
 
   release:
     needs: [build, package]
-    if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/feature/susfs-open-redirect-native'
     runs-on: ubuntu-latest
     permissions:
       contents: write

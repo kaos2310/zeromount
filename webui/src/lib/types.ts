@@ -38,6 +38,7 @@ export interface CapabilityFlags {
   susfs_path: boolean;
   susfs_maps: boolean;
   susfs_kstat_redirect: boolean;
+  susfs_open_redirect: boolean;
   susfs_mode: 'enhanced' | 'embedded' | 'absent';
   external_susfs_module: 'none' | 'susfs4ksu' | 'brene';
   susfs_binary_found: boolean;

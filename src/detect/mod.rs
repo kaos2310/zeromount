@@ -49,6 +49,7 @@ fn detect_scenario() -> Result<DetectionResult> {
         susfs_path: susfs_caps.susfs_path,
         susfs_maps: susfs_caps.susfs_maps,
         susfs_kstat_redirect: susfs_caps.susfs_kstat_redirect,
+        susfs_open_redirect: susfs_caps.susfs_open_redirect,
         susfs_mode: susfs_caps.susfs_mode,
         external_susfs_module: susfs_caps.external_susfs_module,
         susfs_binary_found: susfs_caps.susfs_binary_found,
