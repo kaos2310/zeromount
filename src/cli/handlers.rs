@@ -57,6 +57,7 @@ pub fn handle_detect() -> Result<()> {
         println!("  path: {}", result.capabilities.susfs_path);
         println!("  maps: {}", result.capabilities.susfs_maps);
         println!("  kstat_redirect: {}", result.capabilities.susfs_kstat_redirect);
+        println!("  open_redirect: {}", result.capabilities.susfs_open_redirect);
     }
     println!("overlay: {}", result.capabilities.overlay_supported);
     println!("tmpfs_xattr: {}", result.capabilities.tmpfs_xattr);
@@ -367,6 +368,25 @@ pub fn handle_susfs(feature: &str, state: &str) -> Result<()> {
     config.set(key, state)?;
     config.save()?;
     println!("ok");
+    Ok(())
+}
+
+pub fn handle_open_redirect(target_path: &str, redirected_path: &str, uid_scheme: u32) -> Result<()> {
+    let client = crate::susfs::SusfsClient::probe()
+        .context("failed to probe SUSFS for open_redirect")?;
+    if !client.is_available() {
+        anyhow::bail!("SUSFS is not available on this kernel");
+    }
+    client.add_open_redirect(target_path, redirected_path, uid_scheme)?;
+    println!(
+        "{}",
+        serde_json::json!({
+            "status": "ok",
+            "target": target_path,
+            "redirected": redirected_path,
+            "uid_scheme": uid_scheme
+        })
+    );
     Ok(())
 }
 
