@@ -207,7 +207,7 @@ jobs:
 
   release:
     needs: [build, package]
-    if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/feature/susfs-open-redirect-native'
     runs-on: ubuntu-latest
     permissions:
       contents: write
