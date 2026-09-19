@@ -62,6 +62,7 @@ pub struct CapabilityFlags {
     pub susfs_path: bool,
     pub susfs_maps: bool,
     pub susfs_kstat_redirect: bool,
+    #[serde(default)]
     pub susfs_open_redirect: bool,
     pub susfs_mode: SusfsMode,
     pub external_susfs_module: ExternalSusfsModule,
