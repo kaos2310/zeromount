@@ -186,6 +186,18 @@ pub struct BreneConfig {
     #[serde(default = "default_true")]
     pub auto_hide_tmp: bool,
     #[serde(default = "default_true")]
+    pub cleanup_sus_marker: bool,
+    #[serde(default = "default_true")]
+    pub hide_nonstandard_android: bool,
+    #[serde(default = "default_true")]
+    pub hide_nonstandard_sdcard: bool,
+    #[serde(default)]
+    pub sdcard_allowlist: Vec<String>,
+    #[serde(default = "default_true")]
+    pub sync_su_compat: bool,
+    #[serde(default = "default_true")]
+    pub sync_selinux_hide: bool,
+    #[serde(default = "default_true")]
     pub avc_log_spoofing: bool,
     #[serde(default)]
     pub susfs_log: bool,
@@ -208,6 +220,16 @@ pub struct BreneConfig {
     #[serde(default = "default_true")]
     pub prop_spoofing: bool,
     #[serde(default = "default_true")]
+    pub spoof_fingerprint_properties: bool,
+    #[serde(default = "default_true")]
+    pub spoof_utc_properties: bool,
+    #[serde(default = "default_true")]
+    pub spoof_date_properties: bool,
+    #[serde(default)]
+    pub prop_spoofing_repeat: bool,
+    #[serde(default)]
+    pub managed_ksu_features: Vec<String>,
+    #[serde(default = "default_true")]
     pub auto_hide_injections: bool,
     #[serde(default)]
     pub custom_sus_paths: Vec<String>,
@@ -215,6 +237,8 @@ pub struct BreneConfig {
     pub custom_sus_maps: Vec<String>,
     #[serde(default)]
     pub custom_sus_path_loops: Vec<String>,
+    #[serde(default)]
+    pub custom_kernel_umounts: Vec<String>,
     #[serde(default = "default_vbmeta_size")]
     pub vbmeta_size: u32,
     #[serde(default = "default_true")]
@@ -234,6 +258,12 @@ impl Default for BreneConfig {
             auto_hide_rooted_folders: true,
             auto_hide_recovery: true,
             auto_hide_tmp: true,
+            cleanup_sus_marker: true,
+            hide_nonstandard_android: true,
+            hide_nonstandard_sdcard: true,
+            sdcard_allowlist: Vec::new(),
+            sync_su_compat: true,
+            sync_selinux_hide: true,
             avc_log_spoofing: true,
             susfs_log: false,
             hide_sus_mounts: true,
@@ -245,10 +275,16 @@ impl Default for BreneConfig {
             try_umount: false,
             skip_legit_mounts: true,
             prop_spoofing: true,
+            spoof_fingerprint_properties: true,
+            spoof_utc_properties: true,
+            spoof_date_properties: true,
+            prop_spoofing_repeat: false,
+            managed_ksu_features: Vec::new(),
             auto_hide_injections: true,
             custom_sus_paths: Vec::new(),
             custom_sus_maps: Vec::new(),
             custom_sus_path_loops: Vec::new(),
+            custom_kernel_umounts: Vec::new(),
             vbmeta_size: default_vbmeta_size(),
             emulate_vold_app_data: true,
             vold_use_path_loop: true,
@@ -259,7 +295,12 @@ impl Default for BreneConfig {
 
 impl BreneConfig {
     pub fn validate_paths(&self) -> Result<()> {
-        for path in self.custom_sus_paths.iter().chain(&self.custom_sus_maps).chain(&self.custom_sus_path_loops) {
+        for path in self.custom_sus_paths
+            .iter()
+            .chain(&self.custom_sus_maps)
+            .chain(&self.custom_sus_path_loops)
+            .chain(&self.custom_kernel_umounts)
+        {
             if !path.starts_with('/') || path.contains('\0') {
                 anyhow::bail!("invalid sus path: {path:?} (must be absolute, no NUL)");
             }
@@ -340,8 +381,6 @@ pub struct AdbConfig {
     pub usb_debugging: bool,
     #[serde(default)]
     pub developer_options: bool,
-    #[serde(default)]
-    pub adb_root: bool,
 }
 
 impl Default for AdbConfig {
@@ -349,7 +388,6 @@ impl Default for AdbConfig {
         Self {
             usb_debugging: false,
             developer_options: false,
-            adb_root: false,
         }
     }
 }
@@ -402,6 +440,8 @@ pub struct GuardConfig {
     pub systemui_absent_timeout_secs: u32,
     #[serde(default)]
     pub systemui_monitor_enabled: bool,
+    #[serde(default = "default_allowed_modules")]
+    pub allowed_modules: Vec<String>,
 }
 
 impl Default for GuardConfig {
@@ -417,6 +457,7 @@ impl Default for GuardConfig {
             systemui_max_restarts: 3,
             systemui_absent_timeout_secs: 25,
             systemui_monitor_enabled: false,
+            allowed_modules: default_allowed_modules(),
         }
     }
 }
@@ -471,6 +512,27 @@ fn default_auto() -> String {
 
 fn default_vbmeta_size() -> u32 {
     4096
+}
+
+fn default_allowed_modules() -> Vec<String> {
+    [
+        "TA_utl",
+        "avf_gunyah",
+        "avf_gunyah_runtime",
+        "avf_gunyah_terminal",
+        "droidspaces",
+        "hma_oss_zygisk",
+        "kp_enhancer",
+        "meta-zeromount",
+        "playintegrityfix",
+        "tricky_store",
+        "zm-resukisu-fix",
+        "zygisk_lsposed",
+        "zygisksu",
+    ]
+    .into_iter()
+    .map(str::to_string)
+    .collect()
 }
 
 // -- 3-layer resolution --
@@ -622,6 +684,12 @@ impl ZeroMountConfig {
             }
             "brene.auto_hide_recovery" => Some(self.brene.auto_hide_recovery.to_string()),
             "brene.auto_hide_tmp" => Some(self.brene.auto_hide_tmp.to_string()),
+            "brene.cleanup_sus_marker" => Some(self.brene.cleanup_sus_marker.to_string()),
+            "brene.hide_nonstandard_android" => Some(self.brene.hide_nonstandard_android.to_string()),
+            "brene.hide_nonstandard_sdcard" => Some(self.brene.hide_nonstandard_sdcard.to_string()),
+            "brene.sdcard_allowlist" => Some(self.brene.sdcard_allowlist.join(",")),
+            "brene.sync_su_compat" => Some(self.brene.sync_su_compat.to_string()),
+            "brene.sync_selinux_hide" => Some(self.brene.sync_selinux_hide.to_string()),
             "brene.avc_log_spoofing" => Some(self.brene.avc_log_spoofing.to_string()),
             "brene.susfs_log" => Some(self.brene.susfs_log.to_string()),
             "brene.hide_sus_mounts" => Some(self.brene.hide_sus_mounts.to_string()),
@@ -635,10 +703,16 @@ impl ZeroMountConfig {
             "brene.try_umount" => Some(self.brene.try_umount.to_string()),
             "brene.skip_legit_mounts" => Some(self.brene.skip_legit_mounts.to_string()),
             "brene.prop_spoofing" => Some(self.brene.prop_spoofing.to_string()),
+            "brene.spoof_fingerprint_properties" => Some(self.brene.spoof_fingerprint_properties.to_string()),
+            "brene.spoof_utc_properties" => Some(self.brene.spoof_utc_properties.to_string()),
+            "brene.spoof_date_properties" => Some(self.brene.spoof_date_properties.to_string()),
+            "brene.prop_spoofing_repeat" => Some(self.brene.prop_spoofing_repeat.to_string()),
+            "brene.managed_ksu_features" => Some(self.brene.managed_ksu_features.join(",")),
             "brene.auto_hide_injections" => Some(self.brene.auto_hide_injections.to_string()),
             "brene.custom_sus_paths" => Some(self.brene.custom_sus_paths.join(",")),
             "brene.custom_sus_maps" => Some(self.brene.custom_sus_maps.join(",")),
             "brene.custom_sus_path_loops" => Some(self.brene.custom_sus_path_loops.join(",")),
+            "brene.custom_kernel_umounts" => Some(self.brene.custom_kernel_umounts.join(",")),
             "brene.vbmeta_size" => Some(self.brene.vbmeta_size.to_string()),
             "brene.emulate_vold_app_data" => Some(self.brene.emulate_vold_app_data.to_string()),
             "brene.vold_use_path_loop" => Some(self.brene.vold_use_path_loop.to_string()),
@@ -658,7 +732,6 @@ impl ZeroMountConfig {
             // adb.*
             "adb.usb_debugging" => Some(self.adb.usb_debugging.to_string()),
             "adb.developer_options" => Some(self.adb.developer_options.to_string()),
-            "adb.adb_root" => Some(self.adb.adb_root.to_string()),
 
             // guard.*
             "guard.enabled" => Some(self.guard.enabled.to_string()),
@@ -675,6 +748,7 @@ impl ZeroMountConfig {
             "guard.systemui_monitor_enabled" => {
                 Some(self.guard.systemui_monitor_enabled.to_string())
             }
+            "guard.allowed_modules" => Some(self.guard.allowed_modules.join(",")),
             // ui.*
             "ui.language" => Some(self.ui.language.clone()),
 
@@ -720,6 +794,12 @@ impl ZeroMountConfig {
             }
             "brene.auto_hide_recovery" => self.brene.auto_hide_recovery = value.parse()?,
             "brene.auto_hide_tmp" => self.brene.auto_hide_tmp = value.parse()?,
+            "brene.cleanup_sus_marker" => self.brene.cleanup_sus_marker = value.parse()?,
+            "brene.hide_nonstandard_android" => self.brene.hide_nonstandard_android = value.parse()?,
+            "brene.hide_nonstandard_sdcard" => self.brene.hide_nonstandard_sdcard = value.parse()?,
+            "brene.sdcard_allowlist" => self.brene.sdcard_allowlist = parse_csv(value),
+            "brene.sync_su_compat" => self.brene.sync_su_compat = value.parse()?,
+            "brene.sync_selinux_hide" => self.brene.sync_selinux_hide = value.parse()?,
             "brene.avc_log_spoofing" => self.brene.avc_log_spoofing = value.parse()?,
             "brene.susfs_log" => self.brene.susfs_log = value.parse()?,
             "brene.hide_sus_mounts" => self.brene.hide_sus_mounts = value.parse()?,
@@ -733,10 +813,16 @@ impl ZeroMountConfig {
             "brene.try_umount" => self.brene.try_umount = value.parse()?,
             "brene.skip_legit_mounts" => self.brene.skip_legit_mounts = value.parse()?,
             "brene.prop_spoofing" => self.brene.prop_spoofing = value.parse()?,
+            "brene.spoof_fingerprint_properties" => self.brene.spoof_fingerprint_properties = value.parse()?,
+            "brene.spoof_utc_properties" => self.brene.spoof_utc_properties = value.parse()?,
+            "brene.spoof_date_properties" => self.brene.spoof_date_properties = value.parse()?,
+            "brene.prop_spoofing_repeat" => self.brene.prop_spoofing_repeat = value.parse()?,
+            "brene.managed_ksu_features" => self.brene.managed_ksu_features = parse_csv(value),
             "brene.auto_hide_injections" => self.brene.auto_hide_injections = value.parse()?,
             "brene.custom_sus_paths" => self.brene.custom_sus_paths = parse_csv(value),
             "brene.custom_sus_maps" => self.brene.custom_sus_maps = parse_csv(value),
             "brene.custom_sus_path_loops" => self.brene.custom_sus_path_loops = parse_csv(value),
+            "brene.custom_kernel_umounts" => self.brene.custom_kernel_umounts = parse_csv(value),
             "brene.vbmeta_size" => self.brene.vbmeta_size = value.parse()?,
             "brene.emulate_vold_app_data" => self.brene.emulate_vold_app_data = value.parse()?,
             "brene.vold_use_path_loop" => self.brene.vold_use_path_loop = value.parse()?,
@@ -756,7 +842,6 @@ impl ZeroMountConfig {
             // adb.*
             "adb.usb_debugging" => self.adb.usb_debugging = value.parse()?,
             "adb.developer_options" => self.adb.developer_options = value.parse()?,
-            "adb.adb_root" => self.adb.adb_root = value.parse()?,
 
             // guard.*
             "guard.enabled" => self.guard.enabled = value.parse()?,
@@ -773,6 +858,7 @@ impl ZeroMountConfig {
             "guard.systemui_monitor_enabled" => {
                 self.guard.systemui_monitor_enabled = value.parse()?
             }
+            "guard.allowed_modules" => self.guard.allowed_modules = parse_csv(value),
             // ui.*
             "ui.language" => self.ui.language = value.to_string(),
 
