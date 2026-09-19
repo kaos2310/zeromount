@@ -122,10 +122,10 @@ fn collect_susfs_probe() -> String {
         Ok(client) => {
             let f = client.features();
             format!(
-                "available={}\nversion={}\nkstat={}\npath={}\nmaps={}\nkstat_redirect={}\n",
+                "available={}\nversion={}\nkstat={}\npath={}\nmaps={}\nkstat_redirect={}\nopen_redirect={}\n",
                 client.is_available(),
                 client.version().unwrap_or("unknown"),
-                f.kstat, f.path, f.maps, f.kstat_redirect,
+                f.kstat, f.path, f.maps, f.kstat_redirect, f.open_redirect,
             )
         }
         Err(e) => format!("probe_error={e}\n"),
