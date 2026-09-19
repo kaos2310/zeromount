@@ -706,6 +706,7 @@ mod tests {
         assert!(f.kstat);
         assert!(f.maps);
         assert!(!f.kstat_redirect);
+        assert!(!f.open_redirect);
     }
 
     #[test]
@@ -720,6 +721,15 @@ mod tests {
         assert!(f.kstat);
         assert!(f.maps);
         assert!(!f.kstat_redirect, "custom features come from active probing only");
+    }
+
+    #[test]
+    fn parse_features_open_redirect() {
+        let f = parse_features("CONFIG_KSU_SUSFS_OPEN_REDIRECT=y\n");
+        assert!(f.open_redirect);
+        assert!(!f.kstat);
+        assert!(!f.path);
+        assert!(!f.maps);
     }
 
     #[test]
