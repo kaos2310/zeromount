@@ -25,7 +25,7 @@ pub fn execute(_config: &ZeroMountConfig) -> ! {
         "\u{26a0}\u{fe0f} Guard recovery — disabled due to boot failure. Re-enable manually.",
     );
 
-    let _ = fs::remove_file("/data/adb/zeromount/.bootcount");
+    let _ = ZeroMountConfig::reset_bootcount();
     let _ = fs::write(RECOVERY_LOCKOUT, timestamp.as_bytes());
 
     let _ = Command::new("/system/bin/svc").args(["power", "reboot"]).status();

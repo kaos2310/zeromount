@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 const DEFAULT_CONFIG_PATH: &str = "/data/adb/zeromount/config.toml";
 const BACKUP_CONFIG_PATH: &str = "/data/adb/zeromount/config.toml.bak";
 const BOOTCOUNT_PATH: &str = "/data/adb/zeromount/.bootcount";
+const BOOT_ID_PATH: &str = "/data/adb/zeromount/.bootid";
+const KERNEL_BOOT_ID_PATH: &str = "/proc/sys/kernel/random/boot_id";
 const BOOTLOOP_THRESHOLD: u32 = 1;
 
 fn migrate_config_keys(raw: &str) -> String {
@@ -619,31 +621,70 @@ impl ZeroMountConfig {
             .unwrap_or(0)
     }
 
-    /// Increment bootcount. Returns new count.
+    /// The counter tracks failed boots, not repeated mount calls in one boot.
+    fn current_boot_id() -> Result<String> {
+        let id = std::fs::read_to_string(KERNEL_BOOT_ID_PATH)
+            .context("reading kernel boot ID for guard")?;
+        let id = id.trim();
+        if id.is_empty() {
+            anyhow::bail!("kernel boot ID is empty");
+        }
+        Ok(id.to_owned())
+    }
+
+    fn is_unfinished_previous_boot(count: u32, recorded_id: Option<&str>, current_id: &str) -> bool {
+        count >= BOOTLOOP_THRESHOLD && recorded_id != Some(current_id)
+    }
+
+    /// Record one attempt per kernel boot. Repeated mount calls keep the same count.
     pub fn increment_bootcount() -> Result<u32> {
-        let count = Self::read_bootcount() + 1;
+        let id = Self::current_boot_id()?;
+        let count = Self::read_bootcount();
+        let recorded_id = std::fs::read_to_string(BOOT_ID_PATH).ok();
+        if recorded_id.as_deref().map(str::trim) == Some(id.as_str()) {
+            tracing::debug!(count, "mount already recorded for this boot");
+            return Ok(count);
+        }
+        let count = count.saturating_add(1);
         if let Some(parent) = Path::new(BOOTCOUNT_PATH).parent() {
-            let _ = std::fs::create_dir_all(parent);
+            std::fs::create_dir_all(parent).context("creating guard state directory")?;
         }
         std::fs::write(BOOTCOUNT_PATH, count.to_string()).context("writing bootcount")?;
-        tracing::debug!(count, "bootcount incremented");
+        std::fs::write(BOOT_ID_PATH, id).context("writing guard boot ID")?;
+        tracing::debug!(count, "bootcount incremented for new boot");
         Ok(count)
     }
 
-    /// Reset bootcount to 0 (called from service.sh after sys.boot_completed=1).
+    /// Clear both markers when Android reports a completed boot.
     pub fn reset_bootcount() -> Result<()> {
-        let _ = std::fs::remove_file(BOOTCOUNT_PATH);
-        tracing::debug!("bootcount reset");
+        for path in [BOOTCOUNT_PATH, BOOT_ID_PATH] {
+            if let Err(error) = std::fs::remove_file(path) {
+                if error.kind() != std::io::ErrorKind::NotFound {
+                    return Err(error).with_context(|| format!("clearing guard state {path}"));
+                }
+            }
+        }
+        tracing::debug!("boot guard reset");
         Ok(())
     }
 
-    /// Check if we're in a bootloop. If count >= threshold, restore backup.
+    /// Recover only if an unfinished mount attempt belongs to an earlier boot.
     pub fn check_bootloop() -> Result<bool> {
         let count = Self::read_bootcount();
-        if count >= BOOTLOOP_THRESHOLD {
-            tracing::error!("bootloop detected ({count} consecutive failures)");
+        if count < BOOTLOOP_THRESHOLD {
+            return Ok(false);
+        }
+        let current_id = Self::current_boot_id()?;
+        let recorded_id = std::fs::read_to_string(BOOT_ID_PATH).ok();
+        if Self::is_unfinished_previous_boot(
+            count,
+            recorded_id.as_deref().map(str::trim),
+            &current_id,
+        ) {
+            tracing::error!(count, "previous boot did not complete; triggering recovery");
             return Ok(true);
         }
+        tracing::debug!(count, "repeated mount in current boot; keeping module enabled");
         Ok(false)
     }
 
@@ -1222,6 +1263,15 @@ kstat = false
     fn unknown_key_rejected() {
         let mut config = ZeroMountConfig::default();
         assert!(config.set("nonexistent", "value").is_err());
+    }
+
+    #[test]
+    fn bootloop_guard_distinguishes_repeated_mount_from_failed_previous_boot() {
+        assert!(!ZeroMountConfig::is_unfinished_previous_boot(0, None, "boot-a"));
+        assert!(!ZeroMountConfig::is_unfinished_previous_boot(1, Some("boot-a"), "boot-a"));
+        assert!(ZeroMountConfig::is_unfinished_previous_boot(1, Some("boot-a"), "boot-b"));
+        // The old counter had no boot-ID marker. Preserve the protective recovery.
+        assert!(ZeroMountConfig::is_unfinished_previous_boot(1, None, "boot-b"));
     }
 
     #[test]
