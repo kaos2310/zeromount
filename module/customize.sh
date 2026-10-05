@@ -241,7 +241,9 @@ zm_print "  🔄 $(_msg bridge_sync)"
 
 zm_print "🚀 $(_msg finalizing)" 0.3 "h"
 
-echo 0 > "$ZM_DATA/.bootcount"
+# Installing the module is an explicit re-enable. Discard stale guard state
+# alongside the disable marker cleared above; retain activity.log for diagnosis.
+rm -f "$ZM_DATA/.bootcount" "$ZM_DATA/.bootid" "$ZM_DATA/.recovery_lockout"
 
 if command -v chcon >/dev/null 2>&1; then
     find "$MODPATH" -path "*/webroot" -prune -o -exec chcon u:object_r:system_file:s0 {} + 2>/dev/null || true
