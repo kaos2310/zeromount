@@ -21,7 +21,7 @@ jobs:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
       - name: Test boot attempt tracking
-        run: cargo test --locked bootloop_guard_distinguishes_repeated_mount_from_failed_previous_boot
+        run: cargo test bootloop_guard_distinguishes_repeated_mount_from_failed_previous_boot
 
   build:
     needs: guard-tests
