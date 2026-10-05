@@ -400,7 +400,8 @@ pub fn handle_perf() -> Result<()> {
 }
 
 pub fn handle_prop_watch() -> Result<()> {
-    crate::prop::run_prop_watch()
+    let config = crate::core::config::ZeroMountConfig::load(None)?;
+    crate::prop::run_prop_watch(config.brene.prop_spoofing_repeat)
 }
 
 pub fn handle_watch() -> Result<()> {

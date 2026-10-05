@@ -843,6 +843,7 @@ mod tests {
             path: true,
             maps: true,
             kstat_redirect: false,
+            open_redirect: false,
         };
         assert!(!features.kstat_redirect);
         assert!(features.kstat);

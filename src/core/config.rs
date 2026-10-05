@@ -1072,7 +1072,6 @@ mod tests {
         assert!(!config.emoji.enabled);
         assert!(!config.adb.usb_debugging);
         assert!(!config.adb.developer_options);
-        assert!(!config.adb.adb_root);
         assert!(config.per_module.is_empty());
     }
 
@@ -1231,7 +1230,6 @@ kstat = false
         assert_eq!(config.uname.mode, UnameMode::Disabled);
         assert!(!config.adb.usb_debugging);
         assert!(!config.adb.developer_options);
-        assert!(!config.adb.adb_root);
     }
 
     #[test]
